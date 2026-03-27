@@ -56,13 +56,10 @@ def transition_model(corpus, page, damping_factor):
     """
     n = len(corpus)
 
-    # current page has no outgoing links = link to every page
+    # no outgoing links = treat as linking to everything
     links = corpus[page] if corpus[page] else set(corpus.keys())
 
-    # base probability from the random-teleport
     base = (1 - damping_factor) / n
-
-    # Pages linked from current page
     link_bonus = damping_factor / len(links)
 
     return {p: base + (link_bonus if p in links else 0) for p in corpus}
@@ -78,17 +75,11 @@ def sample_pagerank(corpus, damping_factor, n):
     PageRank values should sum to 1.
     """
     counts = {page: 0 for page in corpus}
-
-    # First sample: pick a page completely at random
     page = random.choice(list(corpus.keys()))
 
     for _ in range(n):
         counts[page] += 1
-
-        # Get the probability distribution over next pages given current page
         dist = transition_model(corpus, page, damping_factor)
-
-        # Randomly pick the next page weighted by the transition probabilities.
         page = random.choices(list(dist.keys()), weights=dist.values())[0]
 
     return {page: count / n for page, count in counts.items()}
@@ -104,30 +95,22 @@ def iterate_pagerank(corpus, damping_factor):
     PageRank values should sum to 1.
     """
     n = len(corpus)
-
-    # Start with a uniform distribution: every page is equally likely
     ranks = {page: 1 / n for page in corpus}
 
-    # Pre-process: pages with no outgoing links = link to every page
+    # pages with no links get treated as linking to everything
     adjusted = {
         page: (links if links else set(corpus.keys())) for page, links in corpus.items()
     }
 
     while True:
         new_ranks = {}
-
         for page in corpus:
-            # Sum contributions from every page that links to this page.
             link_sum = sum(
-                ranks[p] / len(adjusted[p])
-                for p in corpus
-                if page in adjusted[p]  # only pages that actually link here
+                ranks[p] / len(adjusted[p]) for p in corpus if page in adjusted[p]
             )
-
-            # PR(page) = (1 - d) / N  +  d * sum(PR(i) / NumLinks(i))
+            # PR(page) = (1 - d) / N + d * sum(PR(i) / NumLinks(i))
             new_ranks[page] = (1 - damping_factor) / n + damping_factor * link_sum
 
-        # Check convergence
         if all(abs(new_ranks[p] - ranks[p]) < 0.001 for p in corpus):
             return new_ranks
 
